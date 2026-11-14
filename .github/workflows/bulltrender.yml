@@ -1,0 +1,38 @@
+name: Uppdatera bulltrender
+
+on:
+  schedule:
+    # Varje måndag 05:17 UTC (06:17/07:17 svensk tid) – efter fredagens stängning är med
+    - cron: "17 5 * * 1"
+  workflow_dispatch:   # gör att du kan köra den manuellt under fliken Actions
+
+permissions:
+  contents: write
+
+jobs:
+  uppdatera:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installera paket
+        run: pip install -r requirements.txt
+
+      - name: Räkna och rita
+        env:
+          TZ: Europe/Stockholm
+        run: python scripts/bulltrender.py
+
+      - name: Spara resultatet i repot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          git diff --cached --quiet && echo "Inget nytt" && exit 0
+          git commit -m "Uppdatera bulltrender $(date +%F)"
+          git push
