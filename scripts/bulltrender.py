@@ -11,7 +11,7 @@ Data:
   - data/omxspi_extra.csv        (valfri – egen data som fyller i eller ersätter)
 
 Resultat hamnar i docs/ (GitHub Pages):
-  docs/bulltrender.png, docs/ar.png, docs/nyckeltal.json, docs/omxspi.csv, docs/index.html
+  docs/bulltrender.png, docs/ar.png, docs/volatilitet.png, docs/nyckeltal.json, docs/omxspi.csv, docs/index.html
 """
 
 from __future__ import annotations
@@ -257,6 +257,100 @@ def rita_ar(monster_pct, monster_datum, utfall_pct, utfall_datum, ar, uppdaterad
     plt.close(fig)
 
 
+
+# --------------------------------------------------------------------------
+# Volatilitet
+# --------------------------------------------------------------------------
+def rullande_vol(s: pd.Series, fonster: int, bara_nedsida: bool = False) -> pd.Series:
+    """Rullande årlig volatilitet av dagliga log-avkastningar."""
+    r = np.log(s / s.shift(1)).dropna()
+    if bara_nedsida:
+        r = r.clip(upper=0)
+        return np.sqrt((r ** 2).rolling(fonster).mean()) * np.sqrt(252)
+    return r.rolling(fonster).std() * np.sqrt(252)
+
+
+def volatilitet(serier, namn):
+    """Nyckeltal + grafdata för volatilitet och nedgång från topp."""
+    nu = serier[-1]
+    v20, v100 = rullande_vol(nu, 20), rullande_vol(nu, 100)
+    ned20 = rullande_vol(nu, 20, bara_nedsida=True)
+    dd = nu / nu.cummax() - 1
+    per_trenddag = [rullande_vol(s, 60).reset_index(drop=True) for s in serier]
+
+    dag = len(nu)
+    jamfor = [p.iloc[dag - 1] for p in per_trenddag[:-1] if len(p) >= dag and pd.notna(p.iloc[dag - 1])]
+    nyck = {
+        "vol_20d": float(v20.iloc[-1]),
+        "vol_100d": float(v100.iloc[-1]),
+        "kvot_20_100": float(v20.iloc[-1] / v100.iloc[-1]),
+        "nedsidesvol_20d": float(ned20.iloc[-1]),
+        "nedgang_fran_topp": float(dd.iloc[-1]),
+        "storsta_nedgang_i_trenden": float(dd.min()),
+        "vol_60d_nu": float(per_trenddag[-1].iloc[-1]),
+        "vol_60d_tidigare_samma_dag": float(np.mean(jamfor)) if jamfor else None,
+    }
+    return nyck, dict(v20=v20, v100=v100, ned20=ned20, dd=dd, per_trenddag=per_trenddag)
+
+
+def rita_volatilitet(g, namn, nyck, uppdaterad):
+    fig = plt.figure(figsize=(16, 14), dpi=120)
+    gs = fig.add_gridspec(3, 1, height_ratios=[1.25, 1, 0.75], hspace=0.38, top=0.92, bottom=0.05)
+
+    # 1) 60-dagars volatilitet per trenddag, alla trender
+    ax1 = fig.add_subplot(gs[0])
+    stil(ax1)
+    for i, (p, n) in enumerate(zip(g["per_trenddag"], namn)):
+        nu = i == len(namn) - 1
+        ax1.plot(np.arange(1, len(p) + 1), p.values, color=FARGER[i % len(FARGER)],
+                 linewidth=2.6 if nu else 1.5, alpha=1 if nu else 0.85, label=n)
+    ax1.yaxis.set_major_formatter(mtick.PercentFormatter(1.0, decimals=0))
+    ax1.set_xlabel("Handelsdagar sedan botten", color="#595959")
+    ax1.set_title("VOLATILITET PER TRENDDAG (60 dagar, årstakt)", fontsize=15, color="#404040", loc="left")
+    ax1.legend(loc="upper right", frameon=False, fontsize=11, ncol=4)
+
+    # 2) Nuvarande trend: 20 d mot 100 d (+ nedsidesvolatilitet)
+    ax2 = fig.add_subplot(gs[1])
+    stil(ax2)
+    v20, v100, ned = g["v20"], g["v100"], g["ned20"]
+    ax2.plot(v100.index, v100.values, color="#7F7F7F", linewidth=2, label="100 dagar (normalläge)")
+    ax2.plot(v20.index, v20.values, color="#C00000", linewidth=1.8, label="20 dagar")
+    ax2.plot(ned.index, ned.values, color="#ED7D31", linewidth=1.2, linestyle=(0, (3, 2)), label="Nedsida 20 dagar")
+    upp = (v20 > v100).reindex(v20.index).fillna(False)
+    ax2.fill_between(v20.index, v100.reindex(v20.index), v20, where=upp, color="#C00000", alpha=0.12,
+                     label="Stigande (20 d > 100 d)")
+    ax2.yaxis.set_major_formatter(mtick.PercentFormatter(1.0, decimals=0))
+    ax2.set_title("NUVARANDE BULLTREND – STIGER ELLER SJUNKER VOLATILITETEN?", fontsize=15,
+                  color="#404040", loc="left")
+    ax2.legend(loc="upper right", frameon=False, fontsize=10, ncol=4)
+    kvot = nyck["kvot_20_100"]
+    lage = "STIGANDE" if kvot > 1.05 else ("SJUNKANDE" if kvot < 0.95 else "OFÖRÄNDRAD")
+    ax2.text(0.01, 0.95, f"Kvot 20d/100d: {kvot:.2f} → {lage}\n20 d: {nyck['vol_20d']:.1%} · 100 d: {nyck['vol_100d']:.1%}",
+             transform=ax2.transAxes, va="top", fontsize=12,
+             bbox=dict(boxstyle="round,pad=0.5", facecolor="#F2F2F2", edgecolor="none"))
+
+    # 3) Nedgång från trendens topp
+    ax3 = fig.add_subplot(gs[2], sharex=ax2)
+    stil(ax3)
+    dd = g["dd"]
+    ax3.fill_between(dd.index, dd.values, 0, color="#C00000", alpha=0.25)
+    ax3.plot(dd.index, dd.values, color="#C00000", linewidth=1.2)
+    ax3.axhline(-0.10, color="#ED7D31", linewidth=1, linestyle="--")
+    ax3.axhline(-0.20, color="#7F0000", linewidth=1, linestyle="--")
+    ax3.text(dd.index[0], -0.10, " −10 % korrektion", va="bottom", fontsize=9, color="#ED7D31")
+    ax3.text(dd.index[0], -0.20, " −20 % björngräns", va="bottom", fontsize=9, color="#7F0000")
+    ax3.set_ylim(min(-0.22, dd.min() * 1.1), 0.01)
+    ax3.yaxis.set_major_formatter(mtick.PercentFormatter(1.0, decimals=0))
+    ax3.set_title(f"NEDGÅNG FRÅN TRENDENS TOPP – nu {nyck['nedgang_fran_topp']:.1%}, "
+                  f"största {nyck['storsta_nedgang_i_trenden']:.1%}", fontsize=15, color="#404040", loc="left")
+
+    fig.suptitle("VOLATILITET I BULLTRENDEN – OMXSPI", fontsize=18, color="#404040", y=0.97)
+    fig.text(0.01, 0.015, f"Källa: Nasdaq via FRED, investing.com · Uppdaterad {uppdaterad}",
+             fontsize=9, color="#8C8C8C")
+    fig.savefig(UT / "volatilitet.png", bbox_inches="tight")
+    plt.close(fig)
+
+
 # --------------------------------------------------------------------------
 def main():
     UT.mkdir(exist_ok=True)
@@ -310,6 +404,10 @@ def main():
     rita_bulltrender(serier, namn, monster, nyck, uppdaterad)
     rita_ar(monster_pct, monster_datum, utfall_pct, utfall.index, AR, uppdaterad)
 
+    vol_nyck, vol_data = volatilitet(serier, namn)
+    nyck["volatilitet"] = vol_nyck
+    rita_volatilitet(vol_data, namn, vol_nyck, uppdaterad)
+
     kurser.rename("close").to_csv(UT / "omxspi.csv", index_label="date")
     (UT / "nyckeltal.json").write_text(json.dumps(nyck, ensure_ascii=False, indent=2))
     skriv_html(nyck)
@@ -318,6 +416,7 @@ def main():
 
 def skriv_html(n):
     a = n["ar"]
+    v = n["volatilitet"]
     rader = "".join(
         f"<tr><td>{t}</td><td>{v['dagar']}</td><td>{v['uppgang']:+.1%}</td><td>{v['snitt_per_dag']:+.3%}</td></tr>"
         for t, v in n["trender"].items()
@@ -345,6 +444,13 @@ def skriv_html(n):
 </div>
 <img src="ar.png" alt="OMXSPI {a['ar']} mot bulltrendsmönster">
 <img src="bulltrender.png" alt="Bulltrender 2000-tal OMXSPI">
+<div class="kort">
+ <div>Volatilitet 20 d<b>{v['vol_20d']:.1%}</b></div>
+ <div>Kvot 20 d / 100 d<b>{v['kvot_20_100']:.2f}</b></div>
+ <div>Nedgång från topp<b>{v['nedgang_fran_topp']:.1%}</b></div>
+ <div>Största nedgång i trenden<b>{v['storsta_nedgang_i_trenden']:.1%}</b></div>
+</div>
+<img src="volatilitet.png" alt="Volatilitet i bulltrenden">
 <table><tr><th>Trend</th><th>Handelsdagar</th><th>Uppgång</th><th>Snitt per dag</th></tr>{rader}</table>
 </body></html>"""
     (UT / "index.html").write_text(html, encoding="utf-8")
