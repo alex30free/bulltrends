@@ -40,9 +40,19 @@ UT = ROT / "docs"
 FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=NASDAQOMXSPI"
 AR = int(os.environ.get("AR", date.today().year))  # år för årsjämförelsen
 
-FARGER = ["#4472C4", "#ED7D31", "#7F7F7F", "#70AD47", "#A5A5A5", "#FFC000"]
-MONSTER_FARG = "#1F1F7A"
-UTFALL_FARG = "#00B050"
+# Mörkt tema – samma palett som sector-trends
+BG = "#0d1318"; RUTNAT = "#1c2830"; KANT = "#253340"
+TEXT = "#c8d8e8"; DAMPAD = "#6a8090"; VIT = "#f0f4f8"; RUTA = "#111820"
+TEAL = "#00c8d4"; BLA = "#0099ff"; GUL = "#f0c040"; GRON = "#00e5a0"; ROD = "#ff5c6c"; ORANGE = "#ff9f43"
+FARGER = [BLA, GUL, "#8fa3b5", GRON, "#b48cff", ORANGE]
+MONSTER_FARG = "#dfe7f0"
+UTFALL_FARG = GRON
+
+plt.rcParams.update({
+    "figure.facecolor": BG, "axes.facecolor": BG, "savefig.facecolor": BG,
+    "text.color": TEXT, "axes.labelcolor": DAMPAD, "xtick.color": DAMPAD, "ytick.color": DAMPAD,
+    "legend.labelcolor": TEXT, "font.family": "DejaVu Sans",
+})
 
 
 # --------------------------------------------------------------------------
@@ -187,13 +197,13 @@ def bulltrendsmonster(avslutade: list[pd.Series]) -> np.ndarray:
 # Grafer
 # --------------------------------------------------------------------------
 def stil(ax):
-    ax.grid(axis="y", color="#E5E5E5", linewidth=0.8)
+    ax.grid(axis="y", color=RUTNAT, linewidth=0.8)
     ax.grid(axis="x", visible=False)
     for k in ("top", "right"):
         ax.spines[k].set_visible(False)
-    ax.spines["left"].set_color("#BFBFBF")
-    ax.spines["bottom"].set_color("#BFBFBF")
-    ax.tick_params(colors="#595959")
+    ax.spines["left"].set_color(KANT)
+    ax.spines["bottom"].set_color(KANT)
+    ax.tick_params(colors=DAMPAD)
 
 
 def rita_bulltrender(serier, namn, monster, nyck, uppdaterad):
@@ -206,16 +216,16 @@ def rita_bulltrender(serier, namn, monster, nyck, uppdaterad):
         ar_nuvarande = i == len(serier) - 1
         ax.plot(x, s.values, color=FARGER[i % len(FARGER)], linewidth=2.6 if ar_nuvarande else 1.8, label=n)
         ax.annotate(n, (x[-1], s.values[-1]), xytext=(6, 0), textcoords="offset points",
-                    fontsize=12, color="#262626", va="center", fontweight="bold" if ar_nuvarande else "normal")
+                    fontsize=12, color=TEXT, va="center", fontweight="bold" if ar_nuvarande else "normal")
     xm = np.arange(1, len(monster) + 1)
     ax.plot(xm, monster, color=MONSTER_FARG, linewidth=2.2, linestyle=(0, (6, 4)), label="Bulltrendsmönster (snitt)")
 
     ax.set_xlim(0, len(monster) * 1.06)
     lagst = min(float(x.min()) for x in serier if not x.empty)
     ax.set_ylim(bottom=min(8, np.floor(lagst * 0.95)))
-    ax.set_xlabel("Handelsdagar sedan botten", color="#595959")
-    ax.set_ylabel("Index (start = 10)", color="#595959")
-    ax.set_title("BULLTRENDER 2000-TAL – OMXSPI SVERIGE", fontsize=18, color="#404040", pad=16)
+    ax.set_xlabel("Handelsdagar sedan botten", color=DAMPAD)
+    ax.set_ylabel("Index (start = 10)", color=DAMPAD)
+    ax.set_title("BULLTRENDER 2000-TAL – OMXSPI SVERIGE", fontsize=18, color=VIT, pad=16)
     ax.legend(loc="upper left", frameon=False, fontsize=11)
 
     text = (f"Nuvarande trend: dag {nyck['nuvarande']['dagar']}\n"
@@ -223,9 +233,9 @@ def rita_bulltrender(serier, namn, monster, nyck, uppdaterad):
             f"Uppgång hittills: {nyck['nuvarande']['uppgang']:+.1%}\n"
             f"Snitt per dag: {nyck['nuvarande']['snitt_per_dag']:+.3%}")
     ax.text(0.985, 0.04, text, transform=ax.transAxes, ha="right", va="bottom", fontsize=12,
-            bbox=dict(boxstyle="round,pad=0.6", facecolor="#E2F0D9", edgecolor="none"))
+            bbox=dict(boxstyle="round,pad=0.6", facecolor=RUTA, edgecolor=KANT))
     fig.text(0.01, 0.01, f"Källa: Nasdaq via FRED, investing.com · Uppdaterad {uppdaterad}",
-             fontsize=9, color="#8C8C8C")
+             fontsize=9, color=DAMPAD)
     fig.tight_layout(rect=[0, 0.03, 1, 1])
     fig.savefig(UT / "bulltrender.png")
     plt.close(fig)
@@ -234,7 +244,7 @@ def rita_bulltrender(serier, namn, monster, nyck, uppdaterad):
 def rita_ar(monster_pct, monster_datum, utfall_pct, utfall_datum, ar, uppdaterad):
     fig, ax = plt.subplots(figsize=(16, 9), dpi=120)
     stil(ax)
-    ax.axhline(0, color="#BFBFBF", linewidth=1)
+    ax.axhline(0, color=KANT, linewidth=1)
     ax.plot(monster_datum, monster_pct, color=MONSTER_FARG, linewidth=2.4, label="Bulltrendsmönster 2000-tal")
     if len(utfall_pct):
         ax.plot(utfall_datum, utfall_pct, color=UTFALL_FARG, linewidth=2.4, label=f"Bulltrend {ar} utfall")
@@ -248,10 +258,10 @@ def rita_ar(monster_pct, monster_datum, utfall_pct, utfall_datum, ar, uppdaterad
     manader = ["JAN", "FEB", "MAR", "APR", "MAJ", "JUN", "JUL", "AUG", "SEPT", "OKT", "NOV", "DEC"]
     ax.xaxis.set_major_formatter(mtick.FuncFormatter(lambda v, _: manader[mdates.num2date(v).month - 1]))
     ax.set_xlim(pd.Timestamp(ar, 1, 1) - pd.Timedelta(days=3), pd.Timestamp(ar, 12, 31) + pd.Timedelta(days=12))
-    ax.set_title(f"RESULTAT OMXSPI MOT BULLTRENDSMÖNSTER 2000-TAL – {ar}", fontsize=18, color="#404040", pad=16)
+    ax.set_title(f"RESULTAT OMXSPI MOT BULLTRENDSMÖNSTER 2000-TAL – {ar}", fontsize=18, color=VIT, pad=16)
     ax.legend(loc="upper left", frameon=False, fontsize=12)
     fig.text(0.01, 0.01, f"Källa: Nasdaq via FRED, investing.com · Uppdaterad {uppdaterad}",
-             fontsize=9, color="#8C8C8C")
+             fontsize=9, color=DAMPAD)
     fig.tight_layout(rect=[0, 0.03, 1, 1])
     fig.savefig(UT / "ar.png")
     plt.close(fig)
@@ -293,6 +303,70 @@ def volatilitet(serier, namn):
     return nyck, dict(v20=v20, v100=v100, ned20=ned20, dd=dd, per_trenddag=per_trenddag)
 
 
+
+def regim(serier, g, avverkat):
+    """Vilken av de fyra rutorna befinner sig marknaden i? (kurs upp/ned × volatilitet upp/ned)"""
+    nu = serier[-1]
+    v20, v100, ned20, dd = g["v20"], g["v100"], g["ned20"], g["dd"]
+    pris_20d = float(nu.iloc[-1] / nu.iloc[-21] - 1)
+    kvot = float(v20.iloc[-1] / v100.iloc[-1])
+    pris_upp, vol_upp = pris_20d >= 0, kvot > 1.05  # 0,95–1,05 räknas som oförändrad
+    dag = len(nu)
+
+    if pris_upp and not vol_upp:
+        farg, sv, en = "gron", ("Frisk bulltrend", "Kursen stiger och volatiliteten är oförändrad eller sjunker – en lugn trappa uppåt. "
+                                "Det vanligaste läget mitt i en bulltrend."), \
+            ("Healthy bull trend", "Price rising with steady or falling volatility – a calm staircase higher. "
+             "The most common state in the middle of a bull trend.")
+    elif pris_upp and vol_upp:
+        if dag < 250:
+            farg, sv, en = "gul", ("Tidig trend", "Kursen stiger med stigande volatilitet. Normalt tidigt i en "
+                                   "trend när marknaden lämnar en botten."), \
+                ("Early trend", "Price rising with rising volatility. Normal early in a trend as the "
+                 "market leaves a bottom.")
+        else:
+            farg, sv, en = "gul", ("Uppgång med oro", "Kursen stiger men volatiliteten ökar. Sent i en trend "
+                                   "kan det tyda på eufori eller instabilitet – håll koll på nedsidan."), \
+                ("Rising but unsettled", "Price rising but volatility increasing. Late in a trend this can "
+                 "signal euphoria or instability – watch the downside.")
+    elif not pris_upp and vol_upp:
+        farg, sv, en = "rod", ("Stress / korrektion", "Kursen faller och volatiliteten stiger. Normalt i en "
+                               "bulltrend om det går över inom några veckor – farligt om det består."), \
+            ("Stress / correction", "Price falling and volatility rising. Normal in a bull trend if it "
+             "fades within weeks – dangerous if it persists.")
+    else:
+        if float(v20.iloc[-40:].max()) > 1.3 * float(v100.iloc[-1]):
+            farg, sv, en = "gul", ("Lugnar sig efter oro", "Kursen är svag men volatiliteten har toppat och "
+                                   "sjunker – ofta en bottenprocess."), \
+                ("Calming after stress", "Price still weak but volatility has peaked and is falling – "
+                 "often a bottoming process.")
+        else:
+            farg, sv, en = "gul", ("Långsam nedglidning", "Kursen faller i lugn takt utan stress – en tyst "
+                                   "försvagning att följa."), \
+                ("Slow drift lower", "Price slipping quietly without stress – a silent weakening "
+                 "worth watching.")
+
+    flaggor = []
+    if float(ned20.iloc[-1]) > 0.8 * float(v20.iloc[-1]):
+        flaggor.append(("Nedsidan står för det mesta av rörligheten", "Downside moves dominate volatility"))
+    if len(v100) > 63 and float(v100.iloc[-1] / v100.iloc[-63] - 1) > 0.15:
+        flaggor.append(("Normalläget för volatiliteten stiger (100 d, 3 mån)", "Baseline volatility rising (100d, 3m)"))
+    if kvot > 1.3:
+        flaggor.append(("Kraftig ökning: 20 d mer än 30 % över 100 d", "Sharp rise: 20d more than 30% above 100d"))
+    if float(dd.iloc[-1]) <= -0.10:
+        flaggor.append(("Mer än 10 % under trendens topp", "More than 10% below the trend high"))
+    if avverkat > 0.7 and float(dd.iloc[-1]) > -0.03 and float(v100.iloc[-1]) < 0.14:
+        flaggor.append(("Lugnt nära toppen sent i trenden – toppar bildas ofta i lugn. Varning om volatiliteten "
+                        "börjar stiga utan nya toppar.",
+                        "Calm near the high late in the trend – tops often form in calm. Warning if volatility "
+                        "starts rising without new highs."))
+    return {
+        "farg": farg, "rubrik": {"sv": sv[0], "en": en[0]}, "text": {"sv": sv[1], "en": en[1]},
+        "flaggor": [{"sv": a, "en": b} for a, b in flaggor],
+        "kurs_20d": pris_20d, "kvot_20_100": kvot,
+    }
+
+
 def rita_volatilitet(g, namn, nyck, uppdaterad):
     fig = plt.figure(figsize=(16, 14), dpi=120)
     gs = fig.add_gridspec(3, 1, height_ratios=[1.25, 1, 0.75], hspace=0.38, top=0.92, bottom=0.05)
@@ -305,48 +379,54 @@ def rita_volatilitet(g, namn, nyck, uppdaterad):
         ax1.plot(np.arange(1, len(p) + 1), p.values, color=FARGER[i % len(FARGER)],
                  linewidth=2.6 if nu else 1.5, alpha=1 if nu else 0.85, label=n)
     ax1.yaxis.set_major_formatter(mtick.PercentFormatter(1.0, decimals=0))
-    ax1.set_xlabel("Handelsdagar sedan botten", color="#595959")
-    ax1.set_title("VOLATILITET PER TRENDDAG (60 dagar, årstakt)", fontsize=15, color="#404040", loc="left")
+    ax1.set_xlabel("Handelsdagar sedan botten", color=DAMPAD)
+    ax1.set_title("VOLATILITET PER TRENDDAG (60 dagar, årstakt)", fontsize=15, color=VIT, loc="left")
     ax1.legend(loc="upper right", frameon=False, fontsize=11, ncol=4)
 
     # 2) Nuvarande trend: 20 d mot 100 d (+ nedsidesvolatilitet)
     ax2 = fig.add_subplot(gs[1])
     stil(ax2)
     v20, v100, ned = g["v20"], g["v100"], g["ned20"]
-    ax2.plot(v100.index, v100.values, color="#7F7F7F", linewidth=2, label="100 dagar (normalläge)")
-    ax2.plot(v20.index, v20.values, color="#C00000", linewidth=1.8, label="20 dagar")
-    ax2.plot(ned.index, ned.values, color="#ED7D31", linewidth=1.2, linestyle=(0, (3, 2)), label="Nedsida 20 dagar")
+    ax2.plot(v100.index, v100.values, color="#8fa3b5", linewidth=2, label="100 dagar (normalläge)")
+    ax2.plot(v20.index, v20.values, color=ROD, linewidth=1.8, label="20 dagar")
+    ax2.plot(ned.index, ned.values, color=GUL, linewidth=1.2, linestyle=(0, (3, 2)), label="Nedsida 20 dagar")
     upp = (v20 > v100).reindex(v20.index).fillna(False)
-    ax2.fill_between(v20.index, v100.reindex(v20.index), v20, where=upp, color="#C00000", alpha=0.12,
+    ax2.fill_between(v20.index, v100.reindex(v20.index), v20, where=upp, color=ROD, alpha=0.18,
                      label="Stigande (20 d > 100 d)")
+    ax2.set_ylim(0, float(np.nanmax(v20.values)) * 1.3)
     ax2.yaxis.set_major_formatter(mtick.PercentFormatter(1.0, decimals=0))
     ax2.set_title("NUVARANDE BULLTREND – STIGER ELLER SJUNKER VOLATILITETEN?", fontsize=15,
-                  color="#404040", loc="left")
+                  color=VIT, loc="left")
     ax2.legend(loc="upper right", frameon=False, fontsize=10, ncol=4)
     kvot = nyck["kvot_20_100"]
     lage = "STIGANDE" if kvot > 1.05 else ("SJUNKANDE" if kvot < 0.95 else "OFÖRÄNDRAD")
-    ax2.text(0.01, 0.95, f"Kvot 20d/100d: {kvot:.2f} → {lage}\n20 d: {nyck['vol_20d']:.1%} · 100 d: {nyck['vol_100d']:.1%}",
-             transform=ax2.transAxes, va="top", fontsize=12,
-             bbox=dict(boxstyle="round,pad=0.5", facecolor="#F2F2F2", edgecolor="none"))
+    r = nyck["regim"]
+    rf = {"gron": GRON, "gul": GUL, "rod": ROD}[r["farg"]]
+    ax2.text(0.01, 0.95, f"● {r['rubrik']['sv'].upper()}", transform=ax2.transAxes, va="top", fontsize=13,
+             color=rf, fontweight="bold",
+             bbox=dict(boxstyle="round,pad=0.5", facecolor=RUTA, edgecolor=rf))
+    ax2.text(0.01, 0.80, f"Kurs 20 d: {r['kurs_20d']:+.1%} · Kvot 20d/100d: {kvot:.2f} → {lage}\n"
+             f"20 d: {nyck['vol_20d']:.1%} · 100 d: {nyck['vol_100d']:.1%}",
+             transform=ax2.transAxes, va="top", fontsize=11, color=TEXT)
 
     # 3) Nedgång från trendens topp
     ax3 = fig.add_subplot(gs[2], sharex=ax2)
     stil(ax3)
     dd = g["dd"]
-    ax3.fill_between(dd.index, dd.values, 0, color="#C00000", alpha=0.25)
-    ax3.plot(dd.index, dd.values, color="#C00000", linewidth=1.2)
-    ax3.axhline(-0.10, color="#ED7D31", linewidth=1, linestyle="--")
-    ax3.axhline(-0.20, color="#7F0000", linewidth=1, linestyle="--")
-    ax3.text(dd.index[0], -0.10, " −10 % korrektion", va="bottom", fontsize=9, color="#ED7D31")
-    ax3.text(dd.index[0], -0.20, " −20 % björngräns", va="bottom", fontsize=9, color="#7F0000")
+    ax3.fill_between(dd.index, dd.values, 0, color=ROD, alpha=0.22)
+    ax3.plot(dd.index, dd.values, color=ROD, linewidth=1.2)
+    ax3.axhline(-0.10, color=ORANGE, linewidth=1, linestyle="--")
+    ax3.axhline(-0.20, color="#c0392b", linewidth=1, linestyle="--")
+    ax3.text(dd.index[0], -0.10, " −10 % korrektion", va="bottom", fontsize=9, color=ORANGE)
+    ax3.text(dd.index[0], -0.20, " −20 % björngräns", va="bottom", fontsize=9, color="#e06666")
     ax3.set_ylim(min(-0.22, dd.min() * 1.1), 0.01)
     ax3.yaxis.set_major_formatter(mtick.PercentFormatter(1.0, decimals=0))
     ax3.set_title(f"NEDGÅNG FRÅN TRENDENS TOPP – nu {nyck['nedgang_fran_topp']:.1%}, "
-                  f"största {nyck['storsta_nedgang_i_trenden']:.1%}", fontsize=15, color="#404040", loc="left")
+                  f"största {nyck['storsta_nedgang_i_trenden']:.1%}", fontsize=15, color=VIT, loc="left")
 
-    fig.suptitle("VOLATILITET I BULLTRENDEN – OMXSPI", fontsize=18, color="#404040", y=0.97)
+    fig.suptitle("VOLATILITET I BULLTRENDEN – OMXSPI", fontsize=18, color=VIT, y=0.97)
     fig.text(0.01, 0.015, f"Källa: Nasdaq via FRED, investing.com · Uppdaterad {uppdaterad}",
-             fontsize=9, color="#8C8C8C")
+             fontsize=9, color=DAMPAD)
     fig.savefig(UT / "volatilitet.png", bbox_inches="tight")
     plt.close(fig)
 
@@ -406,6 +486,8 @@ def main():
 
     vol_nyck, vol_data = volatilitet(serier, namn)
     nyck["volatilitet"] = vol_nyck
+    nyck["regim"] = regim(serier, vol_data, nyck["avverkat_i_tid"])
+    vol_nyck["regim"] = nyck["regim"]
     rita_volatilitet(vol_data, namn, vol_nyck, uppdaterad)
 
     kurser.rename("close").to_csv(UT / "omxspi.csv", index_label="date")
@@ -415,43 +497,71 @@ def main():
 
 
 def skriv_html(n):
-    a = n["ar"]
-    v = n["volatilitet"]
+    a, v, r = n["ar"], n["volatilitet"], n["regim"]
+    rf = {"gron": GRON, "gul": GUL, "rod": ROD}[r["farg"]]
+    flaggor = "".join(f"<li>⚠ {f['sv']}</li>" for f in r["flaggor"]) or "<li class='ok'>Inga varningsflaggor</li>"
     rader = "".join(
-        f"<tr><td>{t}</td><td>{v['dagar']}</td><td>{v['uppgang']:+.1%}</td><td>{v['snitt_per_dag']:+.3%}</td></tr>"
-        for t, v in n["trender"].items()
+        f"<tr><td>{t}</td><td>{x['dagar']}</td><td>{x['uppgang']:+.1%}</td><td>{x['snitt_per_dag']:+.3%}</td></tr>"
+        for t, x in n["trender"].items()
     )
+    ver = n["senaste_kurs_datum"]
     html = f"""<!DOCTYPE html>
 <html lang="sv"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bulltrender OMXSPI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
- body{{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#262626}}
- h1{{font-weight:600;margin-bottom:.2rem}} .sub{{color:#737373;margin-top:0}}
- .kort{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:1.5rem 0}}
- .kort div{{background:#F5F7FA;border-radius:10px;padding:1rem}} .kort b{{display:block;font-size:1.6rem}}
- img{{width:100%;height:auto;border:1px solid #EEE;border-radius:8px;margin:1rem 0}}
- table{{border-collapse:collapse;width:100%}} td,th{{padding:.45rem .6rem;border-bottom:1px solid #EEE;text-align:right}}
+ :root{{--bg:#080c10;--surface:#0d1318;--surface2:#111820;--border:#1c2830;--border2:#253340;--text:#c8d8e8;--muted:#6a8090;--white:#f0f4f8;--teal:#00c8d4}}
+ *{{box-sizing:border-box}} body{{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-weight:300;max-width:1240px;margin:0 auto;padding:32px 24px 48px}}
+ a{{color:#0099ff}} h1{{font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--white);margin:0}} h1 em{{font-style:normal;color:var(--teal)}}
+ .sub{{color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:12px;margin:8px 0 24px}}
+ .card{{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:20px;margin-bottom:20px}}
+ h2{{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:16px;color:var(--white);margin:0 0 12px}}
+ .kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}}
+ .kpi{{background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:12px 14px}}
+ .kpi span{{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}}
+ .kpi b{{display:block;font-family:'IBM Plex Mono',monospace;font-weight:400;font-size:24px;color:var(--white);margin-top:6px}}
+ .regim{{border-left:4px solid {rf};padding-left:14px}} .regim h3{{color:{rf};font-family:'IBM Plex Mono',monospace;margin:0 0 6px}}
+ .regim ul{{margin:10px 0 0;padding-left:0;list-style:none;color:var(--muted)}}
+ img{{width:100%;height:auto;border:1px solid var(--border2);border-radius:6px;margin-top:12px}}
+ table{{border-collapse:collapse;width:100%;font-family:'IBM Plex Mono',monospace;font-size:13px}}
+ td,th{{padding:8px 10px;border-bottom:1px solid var(--border);text-align:right}} th{{color:var(--muted);font-weight:400}}
  td:first-child,th:first-child{{text-align:left}}
+ details{{margin-top:12px;color:var(--muted);font-size:14px;line-height:1.6}} summary{{cursor:pointer;color:var(--text)}}
 </style></head><body>
-<h1>Bulltrender OMXSPI</h1>
-<p class="sub">Uppdateras automatiskt varje vecka · senaste kurs {n['senaste_kurs_datum']}</p>
-<div class="kort">
- <div>Dag i nuvarande trend<b>{n['nuvarande']['dagar']}</b></div>
- <div>Avverkat i tid (mot snittet)<b>{n['avverkat_i_tid']:.0%}</b></div>
- <div>Utfall {a['ar']} hittills<b>{a['utfall_hittills']:+.1%}</b></div>
- <div>Mönstret vid samma dag<b>{a['monster_samma_dag']:+.1%}</b></div>
+<h1>Bulltrender <em>OMXSPI</em></h1>
+<p class="sub">Uppdateras automatiskt varje vecka · senaste kurs {ver} · <a href="../sector-trends/">← Sector Trends</a></p>
+
+<div class="card regim"><h3>● {r['rubrik']['sv']}</h3><div>{r['text']['sv']}</div><ul>{flaggor}</ul></div>
+
+<div class="card"><div class="kpis">
+ <div class="kpi"><span>Dag i trenden</span><b>{n['nuvarande']['dagar']}</b></div>
+ <div class="kpi"><span>Avverkat i tid</span><b>{n['avverkat_i_tid']:.0%}</b></div>
+ <div class="kpi"><span>Utfall {a['ar']}</span><b>{a['utfall_hittills']:+.1%}</b></div>
+ <div class="kpi"><span>Mönstret samma dag</span><b>{a['monster_samma_dag']:+.1%}</b></div>
 </div>
-<img src="ar.png" alt="OMXSPI {a['ar']} mot bulltrendsmönster">
-<img src="bulltrender.png" alt="Bulltrender 2000-tal OMXSPI">
-<div class="kort">
- <div>Volatilitet 20 d<b>{v['vol_20d']:.1%}</b></div>
- <div>Kvot 20 d / 100 d<b>{v['kvot_20_100']:.2f}</b></div>
- <div>Nedgång från topp<b>{v['nedgang_fran_topp']:.1%}</b></div>
- <div>Största nedgång i trenden<b>{v['storsta_nedgang_i_trenden']:.1%}</b></div>
+<img src="ar.png?v={ver}" alt="OMXSPI {a['ar']} mot bulltrendsmönster"></div>
+
+<div class="card"><h2>Alla bulltrender sedan 2002</h2>
+<img src="bulltrender.png?v={ver}" alt="Bulltrender 2000-tal OMXSPI">
+<table style="margin-top:14px"><tr><th>Trend</th><th>Handelsdagar</th><th>Uppgång</th><th>Snitt per dag</th></tr>{rader}</table></div>
+
+<div class="card"><h2>Volatilitet</h2><div class="kpis">
+ <div class="kpi"><span>Volatilitet 20 d</span><b>{v['vol_20d']:.1%}</b></div>
+ <div class="kpi"><span>Kvot 20 d / 100 d</span><b>{v['kvot_20_100']:.2f}</b></div>
+ <div class="kpi"><span>Under toppen</span><b>{v['nedgang_fran_topp']:.1%}</b></div>
+ <div class="kpi"><span>Största nedgång</span><b>{v['storsta_nedgang_i_trenden']:.1%}</b></div>
 </div>
-<img src="volatilitet.png" alt="Volatilitet i bulltrenden">
-<table><tr><th>Trend</th><th>Handelsdagar</th><th>Uppgång</th><th>Snitt per dag</th></tr>{rader}</table>
+<img src="volatilitet.png?v={ver}" alt="Volatilitet i bulltrenden">
+<details><summary>Så tolkar du volatiliteten</summary>
+<p><b>Fyra lägen:</b> kurs upp + volatilitet ned = frisk bulltrend · kurs upp + volatilitet upp = tidig trend eller oro sent i trenden · kurs ned + volatilitet upp = stress/korrektion · kurs ned + volatilitet ned = lugnande efter oro eller långsam nedglidning.</p>
+<p><b>Toppen i volatiliteten sammanfaller ofta med kursbotten.</b> När 20-dagarslinjen spikar och vänder ned brukar det värsta säljtrycket vara över.</p>
+<p><b>Kort spik eller nytt läge?</b> En tillfällig spik som faller tillbaka under 100-dagarslinjen inom veckor är normalt. Stiger 100-dagarslinjen i månader samtidigt som nedgångarna blir djupare är det en varning.</p>
+<p><b>Låg volatilitet betyder inte att det är säkert.</b> Toppar bildas ofta i lugn. Varningen är när volatiliteten börjar stiga utan att kursen gör nya toppar.</p>
+<p><b>Följ nedsidan.</b> När nedsidesvolatiliteten (gul streckad) närmar sig den totala tar säljarna över rörligheten.</p>
+<p>Volatilitet beskriver risken nu – inte riktningen. Endast information, inte finansiell rådgivning.</p>
+</details></div>
 </body></html>"""
     (UT / "index.html").write_text(html, encoding="utf-8")
     (UT / ".nojekyll").write_text("")  # GitHub Pages: hoppa över Jekyll
