@@ -38,6 +38,7 @@ DATA = ROT / "data"
 UT = ROT / "docs"
 
 FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=NASDAQOMXSPI"
+SECTOR_DAGLIG = "https://raw.githubusercontent.com/alex30free/sector-trends/main/daily_omxspi.json"
 AR = int(os.environ.get("AR", date.today().year))  # år för årsjämförelsen
 
 # Mörkt tema – samma palett som sector-trends
@@ -154,6 +155,13 @@ def ladda_kurser() -> pd.Series:
         delar.append(ny)
     else:
         print("VARNING: ingen källa svarade – använder sparad data.", file=sys.stderr)
+    # Dagens stängning från sector-trends (Yahoo, uppdateras varje vardag ~19:00) – FRED ligger ofta en dag efter
+    try:
+        j = _get(SECTOR_DAGLIG).json()
+        delar.append(pd.Series(j["close"], index=pd.to_datetime(j["dates"])).dropna())
+        print(f"  sector-trends: senaste {j['dates'][-1]}", file=sys.stderr)
+    except Exception as e:  # noqa: BLE001
+        print(f"  sector-trends misslyckades: {e}", file=sys.stderr)
     extra = DATA / "omxspi_extra.csv"
     if extra.exists():
         delar.append(las_csv(extra))
