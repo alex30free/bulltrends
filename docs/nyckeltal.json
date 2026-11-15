@@ -45,6 +45,44 @@
     "nedgang_fran_topp": -0.0013053821248528719,
     "storsta_nedgang_i_trenden": -0.22064733303705653,
     "vol_60d_nu": 0.12447882457479885,
-    "vol_60d_tidigare_samma_dag": 0.21567760893655777
+    "vol_60d_tidigare_samma_dag": 0.21567760893655777,
+    "regim": {
+      "farg": "gron",
+      "rubrik": {
+        "sv": "Frisk bulltrend",
+        "en": "Healthy bull trend"
+      },
+      "text": {
+        "sv": "Kursen stiger och volatiliteten är oförändrad eller sjunker – en lugn trappa uppåt. Det vanligaste läget mitt i en bulltrend.",
+        "en": "Price rising with steady or falling volatility – a calm staircase higher. The most common state in the middle of a bull trend."
+      },
+      "flaggor": [
+        {
+          "sv": "Lugnt nära toppen sent i trenden – toppar bildas ofta i lugn. Varning om volatiliteten börjar stiga utan nya toppar.",
+          "en": "Calm near the high late in the trend – tops often form in calm. Warning if volatility starts rising without new highs."
+        }
+      ],
+      "kurs_20d": 0.02119868276619119,
+      "kvot_20_100": 1.0075001547488391
+    }
+  },
+  "regim": {
+    "farg": "gron",
+    "rubrik": {
+      "sv": "Frisk bulltrend",
+      "en": "Healthy bull trend"
+    },
+    "text": {
+      "sv": "Kursen stiger och volatiliteten är oförändrad eller sjunker – en lugn trappa uppåt. Det vanligaste läget mitt i en bulltrend.",
+      "en": "Price rising with steady or falling volatility – a calm staircase higher. The most common state in the middle of a bull trend."
+    },
+    "flaggor": [
+      {
+        "sv": "Lugnt nära toppen sent i trenden – toppar bildas ofta i lugn. Varning om volatiliteten börjar stiga utan nya toppar.",
+        "en": "Calm near the high late in the trend – tops often form in calm. Warning if volatility starts rising without new highs."
+      }
+    ],
+    "kurs_20d": 0.02119868276619119,
+    "kvot_20_100": 1.0075001547488391
   }
 }
