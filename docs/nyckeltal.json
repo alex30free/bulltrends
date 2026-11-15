@@ -36,5 +36,15 @@
     "utfall_hittills": 0.11208974064723431,
     "monster_samma_dag": 0.008863122059871609,
     "monster_helar": 0.10531327824902581
+  },
+  "volatilitet": {
+    "vol_20d": 0.11925804279405298,
+    "vol_100d": 0.1183702476192502,
+    "kvot_20_100": 1.0075001547488391,
+    "nedsidesvol_20d": 0.08245493668236129,
+    "nedgang_fran_topp": -0.0013053821248528719,
+    "storsta_nedgang_i_trenden": -0.22064733303705653,
+    "vol_60d_nu": 0.12447882457479885,
+    "vol_60d_tidigare_samma_dag": 0.21567760893655777
   }
 }
