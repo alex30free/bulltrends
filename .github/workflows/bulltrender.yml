@@ -1,13 +1,24 @@
-name: Uppdatera bulltrender
+name: Uppdatera bulltrender + veckobrev
 
 on:
   schedule:
-    # Varje måndag 05:17 UTC (06:17/07:17 svensk tid) – efter fredagens stängning är med
-    - cron: "17 5 * * 1"
-  workflow_dispatch:   # gör att du kan köra den manuellt under fliken Actions
+    # Fredag 18:41 UTC = 19:41 svensk vintertid / 20:41 sommartid – efter sector-trends (17:53 UTC)
+    - cron: "41 18 * * 5"
+    # Reserv senare samma kväll om dagens stängning inte fanns med vid första körningen
+    - cron: "58 21 * * 5"
+  workflow_dispatch:
+    inputs:
+      skicka_mail:
+        description: "Skicka veckobrevet nu (även om det redan skickats idag)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+
+concurrency:
+  group: bulltrender
+  cancel-in-progress: false
 
 jobs:
   uppdatera:
@@ -28,6 +39,18 @@ jobs:
           TZ: Europe/Stockholm
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python scripts/bulltrender.py
+
+      - name: Veckobrev
+        env:
+          TZ: Europe/Stockholm
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          # Första fredagskörningen väntar på dagens stängning; reservkörningen skickar oavsett
+          KRAV_DAGENS_DATA: ${{ github.event.schedule == '41 18 * * 5' && '1' || '0' }}
+          SKICKA_MAIL: ${{ (github.event_name == 'schedule' || inputs.skicka_mail) && '1' || '0' }}
+          TVINGA: ${{ inputs.skicka_mail && '1' || '0' }}
+        run: python scripts/veckobrev.py
 
       - name: Spara resultatet i repot
         run: |
