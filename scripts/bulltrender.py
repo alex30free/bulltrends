@@ -7,7 +7,7 @@ Gör samma sak som Google Sheets-arket:
 
 Data:
   - data/omxspi_2002_2007.csv   (investing.com, fast historik)
-  - FRED serie NASDAQOMXSPI      (Nasdaq, från nov 2008, hämtas varje körning)
+  - FRED serie NASDAQOMXSPI      (Nasdaq, från nov 2008) – via API-nyckel, CSV eller Nasdaq Nordic som reserv
   - data/omxspi_extra.csv        (valfri – egen data som fyller i eller ersätter)
 
 Resultat hamnar i docs/ (GitHub Pages):
@@ -60,21 +60,90 @@ def las_csv(path_or_buf) -> pd.Series:
     return s.dropna().sort_index()
 
 
-def hamta_fred() -> pd.Series:
-    r = requests.get(FRED_URL, timeout=60, headers={"User-Agent": "sector-trends-bulltrender"})
-    r.raise_for_status()
-    return las_csv(io.StringIO(r.text))
+UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                     "Chrome/124.0 Safari/537.36",
+      "Accept": "text/csv,application/json,*/*"}
+
+
+def _get(url, **kw):
+    """GET med tre försök och lång timeout."""
+    sista = None
+    for forsok in range(3):
+        try:
+            r = requests.get(url, timeout=90, headers=UA, **kw)
+            r.raise_for_status()
+            return r
+        except Exception as e:  # noqa: BLE001
+            sista = e
+            print(f"  försök {forsok + 1} misslyckades: {e}", file=sys.stderr)
+    raise sista
+
+
+def hamta_fred_api() -> pd.Series:
+    """FRED:s officiella API – kräver gratis nyckel i secret FRED_API_KEY."""
+    nyckel = os.environ.get("FRED_API_KEY", "").strip()
+    if not nyckel:
+        raise RuntimeError("ingen FRED_API_KEY satt")
+    r = _get("https://api.stlouisfed.org/fred/series/observations",
+             params={"series_id": "NASDAQOMXSPI", "api_key": nyckel, "file_type": "json"})
+    obs = r.json()["observations"]
+    s = pd.Series(pd.to_numeric([o["value"] for o in obs], errors="coerce"),
+                  index=pd.to_datetime([o["date"] for o in obs]))
+    return s.dropna().sort_index()
+
+
+def hamta_fred_csv() -> pd.Series:
+    return las_csv(io.StringIO(_get(FRED_URL).text))
+
+
+def hamta_nasdaq() -> pd.Series:
+    """Nasdaq Nordics publika API (OMXSPI, ISIN SE0000744195)."""
+    r = _get("https://api.nasdaq.com/api/nordic/instruments/SE0000744195/chart",
+             params={"assetClass": "INDEXES", "lang": "en",
+                     "fromDate": "2008-01-01", "toDate": date.today().isoformat()})
+    punkter = (r.json().get("data") or {}).get("CP") or []
+    datum, varden = [], []
+    for p in punkter:
+        z = p.get("z") or {}
+        if "dateTime" in z and "value" in z:
+            datum.append(pd.to_datetime(z["dateTime"]))
+            varden.append(float(str(z["value"]).replace(",", "")))
+        elif "x" in p and "y" in p:
+            datum.append(pd.to_datetime(p["x"], unit="ms"))
+            varden.append(float(p["y"]))
+    if not datum:
+        raise RuntimeError("tomt svar från Nasdaq")
+    s = pd.Series(varden, index=pd.DatetimeIndex(datum).normalize())
+    return s[~s.index.duplicated(keep="last")].sort_index()
+
+
+KALLOR = [("FRED API", hamta_fred_api), ("FRED CSV", hamta_fred_csv), ("Nasdaq", hamta_nasdaq)]
+
+
+def hamta_ny_data() -> pd.Series | None:
+    for namn, f in KALLOR:
+        print(f"Hämtar kurser från {namn} …", file=sys.stderr)
+        try:
+            s = f()
+            if len(s) > 100:
+                print(f"  OK: {len(s)} kurser, senaste {s.index[-1].date()}", file=sys.stderr)
+                return s
+            print(f"  för lite data ({len(s)} rader)", file=sys.stderr)
+        except Exception as e:  # noqa: BLE001
+            print(f"  misslyckades: {e}", file=sys.stderr)
+    return None
 
 
 def ladda_kurser() -> pd.Series:
     delar = [las_csv(DATA / "omxspi_2002_2007.csv")]
-    try:
-        delar.append(hamta_fred())
-    except Exception as e:  # noqa: BLE001
-        print(f"VARNING: kunde inte hämta FRED ({e}). Använder sparad data.", file=sys.stderr)
-        sparad = UT / "omxspi.csv"
-        if sparad.exists():
-            delar.append(las_csv(sparad))
+    sparad = UT / "omxspi.csv"
+    if sparad.exists():
+        delar.append(las_csv(sparad))
+    ny = hamta_ny_data()
+    if ny is not None:
+        delar.append(ny)
+    else:
+        print("VARNING: ingen källa svarade – använder sparad data.", file=sys.stderr)
     extra = DATA / "omxspi_extra.csv"
     if extra.exists():
         delar.append(las_csv(extra))
@@ -279,6 +348,7 @@ def skriv_html(n):
 <table><tr><th>Trend</th><th>Handelsdagar</th><th>Uppgång</th><th>Snitt per dag</th></tr>{rader}</table>
 </body></html>"""
     (UT / "index.html").write_text(html, encoding="utf-8")
+    (UT / ".nojekyll").write_text("")  # GitHub Pages: hoppa över Jekyll
 
 
 if __name__ == "__main__":
