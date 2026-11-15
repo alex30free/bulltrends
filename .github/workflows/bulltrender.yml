@@ -26,6 +26,7 @@ jobs:
       - name: Räkna och rita
         env:
           TZ: Europe/Stockholm
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python scripts/bulltrender.py
 
       - name: Spara resultatet i repot
