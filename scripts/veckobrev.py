@@ -3,14 +3,12 @@ Veckobrev – skickar ett mejl på fredagskvällen med läget och vilken aktiean
 
 Kör efter bulltrender.py (som skriver docs/nyckeltal.json). Hämtar dessutom:
   - sector-trends/data.json          (veckodata → de sex signalerna i "Bull-trend check")
-  - sector-trends/daily_omxspi.json  (dagliga stängningar → MA200)
+  - data/omxspi_daglig.csv           (huvudfilen, dagliga stängningar → MA200)
 
-Reglerna (ändra fritt i REGLER nedan):
-  A  100 % aktier  Säker bulltrend:   över MA200, MA200 stiger, minst 5 av 6 signaler, högst 10 % under toppen
-  B   90 % aktier  Bulltrend med varningar: över MA200 men något av villkoren för A saknas
-  C   50 % aktier  Brott på MA200:    under MA200, men inte tecken på björntrend
-  D    0 % aktier  Trolig björntrend:  under MA200 och (MA200 faller ELLER minst 20 % under toppen ELLER högst 2 signaler)
-  Återinträde: från C/D krävs två fredagsstängningar i rad över MA200 innan nivå A/B gäller igen.
+Regeln (vald efter backtest 1999–2026, ändra i bestam_niva):
+  A 100 % aktier  OMXSPI över MA200
+  C  50 % aktier  under MA200
+  D   0 % aktier  under MA200 och MA200 faller
 
 Mejl skickas med SMTP (t.ex. Gmail med app-lösenord). Secrets: MAIL_USERNAME, MAIL_PASSWORD, MAIL_TO.
 Endast information enligt dina egna regler – inte finansiell rådgivning.
@@ -39,17 +37,14 @@ RAW = "https://raw.githubusercontent.com/alex30free/sector-trends/main/"
 SIDA = "https://alex30free.github.io/bulltrends/"
 SECTOR_SIDA = "https://alex30free.github.io/sector-trends/"
 
-REGLER = {
-    "A": {"aktier": 100, "namn": "Säker bulltrend", "farg": "#00b37e"},
-    "B": {"aktier": 90, "namn": "Bulltrend med varningar", "farg": "#d4a017"},
-    "C": {"aktier": 50, "namn": "Brott på MA200", "farg": "#e67e22"},
-    "D": {"aktier": 0, "namn": "Trolig björntrend", "farg": "#e74c3c"},
+REGLER = {  # vald efter backtest 1999–2026 (se docs/backtest.png)
+    "A": {"aktier": 100, "namn": "Bulltrend – över MA200", "farg": "#00b37e"},
+    "C": {"aktier": 50, "namn": "Under MA200 – halva ute", "farg": "#e67e22"},
+    "D": {"aktier": 0, "namn": "Björntrend – under fallande MA200", "farg": "#e74c3c"},
 }
-GRANS_DD_A = -0.10        # max nedgång från topp för nivå A
-GRANS_DD_BJORN = -0.20    # björngräns
-NARA_MA200 = 0.02         # inom 2 % över MA200 räknas som varning
-SIGNALER_A = 5            # minst så många av 6 signaler för nivå A
-SIGNALER_BJORN = 2        # högst så många → björntecken
+GRANS_DD_A = -0.10        # (endast varning i mejlet)
+NARA_MA200 = 0.02         # (endast varning i mejlet)
+SIGNALER_A = 5            # (endast varning i mejlet)
 
 
 # ---------------------------------------------------------------- data
@@ -122,28 +117,25 @@ def dagligt(j):
 
 
 # ---------------------------------------------------------------- regler
-def bestam_niva(st, forra, over_i_rad):
-    over = st["kurs"] > st["ma200"]
-    stiger = st["ma200_lutning"] > 0
-    if not over:
-        bjorn = (not stiger) or st["dd"] <= GRANS_DD_BJORN or st["signaler"] <= SIGNALER_BJORN
-        return ("D" if bjorn else "C"), []
-    # över MA200
+def bestam_niva(st, forra=None, over_i_rad=0):
+    """Tre steg på fredagens stängning:
+       över MA200 → A (100 %) · under MA200 → C (50 %) · under MA200 och MA200 faller → D (0 %).
+    Övriga observationer skrivs ut som varningar men styr inte andelen."""
     varningar = []
-    if not stiger:
-        varningar.append("MA200 stiger inte längre")
+    if st["kurs"] > st["ma200"]:
+        niva = "A"
+        if st["ma200_lutning"] <= 0:
+            varningar.append("MA200 stiger inte längre")
+        if st["kurs"] / st["ma200"] - 1 < NARA_MA200:
+            varningar.append("Mindre än 2 % över MA200 – nära gränsen")
+    else:
+        niva = "D" if st["ma200_lutning"] <= 0 else "C"
     if st["signaler"] < SIGNALER_A:
         varningar.append(f"Bara {st['signaler']:g} av 6 bulltrendsignaler")
     if st["dd"] < GRANS_DD_A:
-        varningar.append(f"{st['dd']:.0%} under trendens topp")
-    if st["kurs"] / st["ma200"] - 1 < NARA_MA200:
-        varningar.append("Mindre än 2 % över MA200")
+        varningar.append(f"{st['dd']:.0%} under årshögsta")
     if st["regim_farg"] == "rod":
         varningar.append("Volatilitetsregim: stress/korrektion")
-    niva = "B" if varningar else "A"
-    # återinträde: kom vi från C/D krävs två fredagar i rad över MA200
-    if forra in ("C", "D") and over_i_rad < 2:
-        return "C", ["Första veckan över MA200 – väntar på bekräftelse nästa fredag"]
     return niva, varningar
 
 
@@ -154,6 +146,9 @@ def bygg_mejl(st, niva, forra, varningar, sig, nyck):
     ar = nyck.get("ar", {})
     reg = nyck.get("regim", {})
     vol = nyck.get("volatilitet", {})
+    w = nyck.get("vagor", {}).get("nu", {})
+    vag_rad = (f"{w['vag']} av 5 · dag {w['dagar']} · {w['forandring']:+.0%} hittills "
+               f"(snitt våg {w['vag']}: {(w.get('snitt_forandring') or 0):+.0%} på {(w.get('snitt_dagar') or 0):.0f} d)") if w else "–"
 
     if andrad:
         fran = REGLER[forra]
@@ -187,6 +182,7 @@ def bygg_mejl(st, niva, forra, varningar, sig, nyck):
 <tr><td style="padding:3px 12px 3px 0">Bulltrendsignaler</td><td>{st['signaler']:g} av 6</td></tr>
 <tr><td style="padding:3px 12px 3px 0">Under toppen</td><td>{st['dd']:.1%}</td></tr>
 <tr><td style="padding:3px 12px 3px 0">Dag i bulltrenden</td><td>{nyck.get('nuvarande', {}).get('dagar', '–')} · {nyck.get('avverkat_i_tid', 0):.0%} av snittlängden</td></tr>
+<tr><td style="padding:3px 12px 3px 0">Våg</td><td>{vag_rad}</td></tr>
 <tr><td style="padding:3px 12px 3px 0">I år mot mönstret</td><td>{ar.get('utfall_hittills', 0):+.1%} mot {ar.get('monster_samma_dag', 0):+.1%}</td></tr>
 <tr><td style="padding:3px 12px 3px 0">Volatilitet</td><td>{vol.get('vol_20d', 0):.1%} (kvot 20/100 d {vol.get('kvot_20_100', 0):.2f}) · {reg.get('rubrik', {}).get('sv', '')}</td></tr>
 </table>
@@ -197,10 +193,11 @@ def bygg_mejl(st, niva, forra, varningar, sig, nyck):
 
 <h3>Trappan</h3>
 <table style="border-collapse:collapse;font-size:14px" cellpadding="5">{trappa}</table>
-<p style="font-size:12px;color:#666">D gäller under MA200 när MA200 faller, nedgången är minst 20 % eller högst 2 signaler är positiva.
-Från C/D krävs två fredagar i rad över MA200 innan A/B gäller igen.</p>
+<p style="font-size:12px;color:#666">Beslut på fredagens stängning. Varningarna ovan är information – de ändrar inte andelen.
+Backtest 1999–2026: ca +8 %/år (prisindex) mot +6,6 % för köp och behåll, största fall −27 % mot −68 %.</p>
 
 <p><img src="cid:ARBILD" style="width:100%;max-width:680px"></p>
+<p><img src="cid:VAGBILD" style="width:100%;max-width:680px"></p>
 <p><img src="cid:VOLBILD" style="width:100%;max-width:680px"></p>
 <p><a href="{SIDA}">Bulltrender</a> · <a href="{SECTOR_SIDA}">Sector Trends</a></p>
 <p style="font-size:11px;color:#999">Automatiskt beräknat enligt dina egna regler. Endast information, inte finansiell rådgivning.
@@ -219,11 +216,11 @@ def skicka(rubrik, html):
     msg["From"] = anv
     msg["To"] = till
     msg.set_content("Öppna mejlet i HTML-läge för att se veckobrevet.")
-    ar_id, vol_id = make_msgid()[1:-1], make_msgid()[1:-1]
-    msg.add_alternative(html.replace("cid:ARBILD", f"cid:{ar_id}").replace("cid:VOLBILD", f"cid:{vol_id}"),
-                        subtype="html")
+    ar_id, vol_id, vag_id = make_msgid()[1:-1], make_msgid()[1:-1], make_msgid()[1:-1]
+    msg.add_alternative(html.replace("cid:ARBILD", f"cid:{ar_id}").replace("cid:VOLBILD", f"cid:{vol_id}")
+                        .replace("cid:VAGBILD", f"cid:{vag_id}"), subtype="html")
     del_html = msg.get_payload()[1]
-    for fil, cid in (("ar.png", ar_id), ("volatilitet.png", vol_id)):
+    for fil, cid in (("ar.png", ar_id), ("vagor.png", vag_id), ("volatilitet.png", vol_id)):
         p = UT / fil
         if p.exists():
             del_html.add_related(p.read_bytes(), "image", "png", cid=f"<{cid}>")
@@ -238,12 +235,17 @@ def skicka(rubrik, html):
 # ---------------------------------------------------------------- main
 def main():
     D = hamta(RAW + "data.json")
-    dag = hamta(RAW + "daily_omxspi.json")
+    hf = ROT / "data" / "omxspi_daglig.csv"  # huvudfilen (uppdaterad av bulltrender.py samma kväll)
+    if hf.exists():
+        h = pd.read_csv(hf, parse_dates=["date"])
+        dag = {"dates": h["date"].dt.strftime("%Y-%m-%d").tolist(), "close": h["close"].tolist()}
+    else:
+        dag = hamta(RAW + "daily_omxspi.json")
     nyck = json.loads((UT / "nyckeltal.json").read_text()) if (UT / "nyckeltal.json").exists() else {}
 
     s, m200 = dagligt(dag)
     poang, sig = sex_signaler(D)
-    topp = s[s.index >= pd.Timestamp("2022-09-29")].cummax()
+    topp = s.rolling(252, min_periods=60).max()  # högsta på ett år (samma som i backtestet)
     st = {
         "datum": s.index[-1].strftime("%Y-%m-%d"),
         "kurs": float(s.iloc[-1]),
@@ -262,6 +264,8 @@ def main():
     hist = pd.read_csv(HISTORIK) if HISTORIK.exists() else pd.DataFrame(columns=["datum", "niva", "over_ma200"])
     hist = hist[hist["datum"] != st["datum"]]
     forra = hist["niva"].iloc[-1] if len(hist) else None
+    if forra not in REGLER:  # äldre nivå (t.ex. B från tidigare regler)
+        forra = {"B": "A"}.get(forra)
     over_i_rad = 1 if st["kurs"] > st["ma200"] else 0
     if over_i_rad:
         for v in reversed(hist["over_ma200"].tolist()):
