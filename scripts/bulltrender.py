@@ -552,6 +552,72 @@ def rita_vagor(serier, namn, alla, snitt, uppdaterad):
 
 
 # --------------------------------------------------------------------------
+# År för år
+# --------------------------------------------------------------------------
+def rita_arsvis(kurser: pd.Series, fran_ar: int, uppdaterad):
+    """Varje år från 0 % vid årsskiftet, lagda bredvid varandra (som Kavastus årsvisa graf).
+    Fler än 15 år delas upp på två rader med samma skala."""
+    alla_ar = list(range(fran_ar, kurser.index[-1].year + 1))
+    halft = (len(alla_ar) + 1) // 2 if len(alla_ar) > 15 else len(alla_ar)
+    rader = [alla_ar[:halft], alla_ar[halft:]] if halft < len(alla_ar) else [alla_ar]
+
+    def arsdata(ar):
+        fore = kurser[kurser.index < pd.Timestamp(ar, 1, 1)]
+        x = kurser[(kurser.index >= pd.Timestamp(ar, 1, 1)) & (kurser.index < pd.Timestamp(ar + 1, 1, 1))]
+        if x.empty:
+            return None
+        bas = fore.iloc[-1] if not fore.empty else x.iloc[0]  # första året: från första handelsdagen
+        pct = np.concatenate([[0.0], x.values / bas - 1])
+        dagar = np.concatenate([[0.0], [(d - pd.Timestamp(ar, 1, 1)).days / 365.0 for d in x.index]])
+        return pct, dagar
+
+    data = {ar: arsdata(ar) for ar in alla_ar}
+    data = {k: v for k, v in data.items() if v is not None}
+    lo = min(v[0].min() for v in data.values())
+    hi = max(v[0].max() for v in data.values())
+    spann = hi - lo
+
+    fig, axs = plt.subplots(len(rader), 1, figsize=(18, 7.2 * len(rader)), dpi=120, squeeze=False)
+    resultat = {}
+    for ax, ar_lista in zip(axs[:, 0], rader):
+        stil(ax)
+        ax.axhline(0, color=KANT, linewidth=1)
+        for i, ar in enumerate(ar_lista):
+            if ar not in data:
+                continue
+            pct, dagar = data[ar]
+            xs = i + 0.04 + dagar * 0.92
+            slut = float(pct[-1])
+            resultat[ar] = slut
+            ax.fill_between(xs, pct, 0, where=pct >= 0, interpolate=True, color=GRON, alpha=0.18, linewidth=0)
+            ax.fill_between(xs, pct, 0, where=pct < 0, interpolate=True, color=ROD, alpha=0.20, linewidth=0)
+            ax.plot(xs, pct, color=BLA, linewidth=1.3)
+            pagaende = ar == kurser.index[-1].year
+            ax.text(i + 0.5, hi + spann * 0.05, f"{slut:+.0%}" + ("*" if pagaende else ""), ha="center", va="center",
+                    fontsize=11, color=GRON if slut >= 0 else ROD, fontweight="bold")
+            ax.axvspan(i, i + 1, ymin=0, ymax=0.03, color=(GUL if pagaende else (GRON if slut >= 0 else ROD)), alpha=0.55)
+        ax.set_ylim(lo - spann * 0.06, hi + spann * 0.10)
+        ax.set_xlim(0, len(rader[0]))
+        ax.set_xticks([i + 0.5 for i in range(len(ar_lista))])
+        ax.set_xticklabels([str(a) for a in ar_lista], fontsize=10)
+        ax.tick_params(axis="x", length=0)
+        for i in range(1, len(ar_lista)):
+            ax.axvline(i, color=RUTNAT, linewidth=0.8)
+        ax.yaxis.set_major_formatter(mtick.PercentFormatter(1.0, decimals=0))
+    axs[0, 0].set_title(f"STOCKHOLM OMXSPI ÅR FÖR ÅR {alla_ar[0]}–{alla_ar[-1]}  ·  varje år från 0 % vid årsskiftet",
+                        fontsize=17, color=VIT, pad=14)
+    upp = [r for r in resultat.values() if r >= 0]
+    ned = [r for r in resultat.values() if r < 0]
+    fig.text(0.01, 0.006, f"Plusår: {len(upp)} av {len(resultat)} · snitt plusår {np.mean(upp):+.0%} · "
+             f"snitt minusår {np.mean(ned):+.0%} · * hittills i år · {alla_ar[0]} räknat från första handelsdagen · Samma skala på båda raderna · "
+             f"Källa: investing.com, Nasdaq via FRED, Yahoo · Uppdaterad {uppdaterad}", fontsize=9, color=DAMPAD)
+    fig.tight_layout(rect=[0, 0.015, 1, 1])
+    fig.savefig(UT / "arsvis.png")
+    plt.close(fig)
+    return resultat
+
+
+# --------------------------------------------------------------------------
 def main():
     UT.mkdir(exist_ok=True)
     kurser = ladda_kurser()
@@ -615,6 +681,7 @@ def main():
                      "trender": {n: [{"vag": w[0], "forandring": w[3], "dagar": w[4]} for w in v]
                                  for n, v in alla_vagor.items()}}
     rita_vagor(serier, namn, alla_vagor, vag_snitt, uppdaterad)
+    nyck["arsvis"] = {str(k): v for k, v in rita_arsvis(kurser, 1998, uppdaterad).items()}
 
     kurser.rename("close").to_csv(UT / "omxspi.csv", index_label="date")
     (UT / "nyckeltal.json").write_text(json.dumps(nyck, ensure_ascii=False, indent=2))
@@ -669,6 +736,9 @@ def skriv_html(n):
  <div class="kpi"><span>Mönstret samma dag</span><b>{a['monster_samma_dag']:+.1%}</b></div>
 </div>
 <img src="ar.png?v={ver}" alt="OMXSPI {a['ar']} mot bulltrendsmönster"></div>
+
+<div class="card"><h2>År för år</h2>
+<img src="arsvis.png?v={ver}" alt="OMXSPI år för år"></div>
 
 <div class="card"><h2>Alla bulltrender sedan 2002</h2>
 <img src="bulltrender.png?v={ver}" alt="Bulltrender 2000-tal OMXSPI">
