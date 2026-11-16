@@ -146,9 +146,6 @@ def bygg_mejl(st, niva, forra, varningar, sig, nyck):
     ar = nyck.get("ar", {})
     reg = nyck.get("regim", {})
     vol = nyck.get("volatilitet", {})
-    w = nyck.get("vagor", {}).get("nu", {})
-    vag_rad = (f"{w['vag']} av 5 · dag {w['dagar']} · {w['forandring']:+.0%} hittills "
-               f"(snitt våg {w['vag']}: {(w.get('snitt_forandring') or 0):+.0%} på {(w.get('snitt_dagar') or 0):.0f} d)") if w else "–"
 
     if andrad:
         fran = REGLER[forra]
@@ -182,7 +179,6 @@ def bygg_mejl(st, niva, forra, varningar, sig, nyck):
 <tr><td style="padding:3px 12px 3px 0">Bulltrendsignaler</td><td>{st['signaler']:g} av 6</td></tr>
 <tr><td style="padding:3px 12px 3px 0">Under toppen</td><td>{st['dd']:.1%}</td></tr>
 <tr><td style="padding:3px 12px 3px 0">Dag i bulltrenden</td><td>{nyck.get('nuvarande', {}).get('dagar', '–')} · {nyck.get('avverkat_i_tid', 0):.0%} av snittlängden</td></tr>
-<tr><td style="padding:3px 12px 3px 0">Våg</td><td>{vag_rad}</td></tr>
 <tr><td style="padding:3px 12px 3px 0">I år mot mönstret</td><td>{ar.get('utfall_hittills', 0):+.1%} mot {ar.get('monster_samma_dag', 0):+.1%}</td></tr>
 <tr><td style="padding:3px 12px 3px 0">Volatilitet</td><td>{vol.get('vol_20d', 0):.1%} (kvot 20/100 d {vol.get('kvot_20_100', 0):.2f}) · {reg.get('rubrik', {}).get('sv', '')}</td></tr>
 </table>
@@ -197,7 +193,6 @@ def bygg_mejl(st, niva, forra, varningar, sig, nyck):
 Backtest 1999–2026: ca +8 %/år (prisindex) mot +6,6 % för köp och behåll, största fall −27 % mot −68 %.</p>
 
 <p><img src="cid:ARBILD" style="width:100%;max-width:680px"></p>
-<p><img src="cid:VAGBILD" style="width:100%;max-width:680px"></p>
 <p><img src="cid:VOLBILD" style="width:100%;max-width:680px"></p>
 <p><a href="{SIDA}">Bulltrender</a> · <a href="{SECTOR_SIDA}">Sector Trends</a></p>
 <p style="font-size:11px;color:#999">Automatiskt beräknat enligt dina egna regler. Endast information, inte finansiell rådgivning.
@@ -216,11 +211,11 @@ def skicka(rubrik, html):
     msg["From"] = anv
     msg["To"] = till
     msg.set_content("Öppna mejlet i HTML-läge för att se veckobrevet.")
-    ar_id, vol_id, vag_id = make_msgid()[1:-1], make_msgid()[1:-1], make_msgid()[1:-1]
-    msg.add_alternative(html.replace("cid:ARBILD", f"cid:{ar_id}").replace("cid:VOLBILD", f"cid:{vol_id}")
-                        .replace("cid:VAGBILD", f"cid:{vag_id}"), subtype="html")
+    ar_id, vol_id = make_msgid()[1:-1], make_msgid()[1:-1]
+    msg.add_alternative(html.replace("cid:ARBILD", f"cid:{ar_id}").replace("cid:VOLBILD", f"cid:{vol_id}"),
+                        subtype="html")
     del_html = msg.get_payload()[1]
-    for fil, cid in (("ar.png", ar_id), ("vagor.png", vag_id), ("volatilitet.png", vol_id)):
+    for fil, cid in (("ar.png", ar_id), ("volatilitet.png", vol_id)):
         p = UT / fil
         if p.exists():
             del_html.add_related(p.read_bytes(), "image", "png", cid=f"<{cid}>")

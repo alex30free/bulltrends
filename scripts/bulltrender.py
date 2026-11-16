@@ -459,99 +459,6 @@ def rita_volatilitet(g, namn, nyck, uppdaterad):
 
 
 # --------------------------------------------------------------------------
-# Fem vågor
-# --------------------------------------------------------------------------
-REKYL_GRANS = 0.10  # en rekyl räknas när indexet faller minst 10 % från en topp
-
-
-def rekyler(x: pd.Series, grans: float = REKYL_GRANS):
-    """Alla nedgångar ≥ grans (topp → botten) i serien, som (topp_i, botten_i, djup)."""
-    v = x.values
-    ut, topp, botten, ner = [], 0, 0, False
-    for i in range(1, len(v)):
-        if not ner:
-            if v[i] > v[topp]:
-                topp = i
-            elif v[i] / v[topp] - 1 <= -grans:
-                ner, botten = True, i
-        else:
-            if v[i] < v[botten]:
-                botten = i
-            elif v[i] / v[botten] - 1 >= grans:
-                ut.append((topp, botten, v[botten] / v[topp] - 1))
-                ner, topp = False, i
-    if ner:
-        ut.append((topp, botten, v[botten] / v[topp] - 1))
-    return ut
-
-
-def fem_vagor(x: pd.Series, pagaende: bool = False):
-    """Våg 2 och 4 = två rekyler (≥ 10 %) valda så att de tillsammans är så djupa som möjligt,
-    med Elliotts grundregel att våg 3 inte får vara den kortaste uppgången (1, 3, 5).
-    I en pågående trend jämförs våg 3 bara med våg 1. Returnerar (våg, start_i, slut_i, förändring, dagar)."""
-    v = x.values
-    rk = rekyler(x)
-
-    def bygg(par):
-        punkter = [0]
-        for topp, botten, _ in sorted(par, key=lambda r: r[0]):
-            punkter += [topp, botten]
-        punkter.append(len(v) - 1)
-        return [(nr + 1, a, b, float(v[b] / v[a] - 1), int(b - a))
-                for nr, (a, b) in enumerate(zip(punkter[:-1], punkter[1:]))]
-
-    if len(rk) < 2:
-        return bygg(rk)
-    kandidater = []
-    for i in range(len(rk)):
-        for j in range(i + 1, len(rk)):
-            w = bygg([rk[i], rk[j]])
-            upp = {n: f for n, a, b, f, d in w if n in (1, 3, 5)}
-            jamfor = [upp[1]] if pagaende else [upp[1], upp[5]]
-            giltig = upp[3] >= min(jamfor)
-            kandidater.append((giltig, -(rk[i][2] + rk[j][2]), w))
-    giltiga = [k for k in kandidater if k[0]] or kandidater
-    return max(giltiga, key=lambda k: k[1])[2]
-
-
-def vag_statistik(serier, namn):
-    alla = {n: fem_vagor(s, pagaende=(k == len(namn) - 1)) for k, (n, s) in enumerate(zip(namn, serier))}
-    snitt = {}
-    for vag in range(1, 6):
-        x = [w for n in namn[:-1] for w in alla[n] if w[0] == vag]
-        if x:
-            snitt[vag] = {"forandring": float(np.mean([w[3] for w in x])), "dagar": float(np.mean([w[4] for w in x]))}
-    nu = alla[namn[-1]][-1]
-    return alla, snitt, {"vag": nu[0], "dagar": nu[4], "forandring": nu[3],
-                         "snitt_dagar": snitt.get(nu[0], {}).get("dagar"),
-                         "snitt_forandring": snitt.get(nu[0], {}).get("forandring")}
-
-
-def rita_vagor(serier, namn, alla, snitt, uppdaterad):
-    fig, axs = plt.subplots(2, 2, figsize=(16, 10), dpi=120)
-    upp, ned = GRON, ROD
-    for ax, s, n, i in zip(axs.flat, serier, namn, range(len(namn))):
-        stil(ax)
-        x = np.arange(1, len(s) + 1)
-        ax.plot(x, s.values, color=FARGER[i % len(FARGER)], linewidth=1.6)
-        for vag, a, b, f, d in alla[n]:
-            ax.axvspan(a + 1, b + 1, color=upp if vag % 2 else ned, alpha=0.10 if vag % 2 else 0.16, linewidth=0)
-            ax.annotate(str(vag), (b + 1, s.values[b]), xytext=(0, 9 if vag % 2 else -16), textcoords="offset points",
-                        ha="center", fontsize=14, fontweight="bold", color=upp if vag % 2 else ned)
-        tab = "  ".join(f"{vag}: {f:+.0%}" for vag, a, b, f, d in alla[n])
-        ax.set_title(f"{n}   ·   {tab}", fontsize=12, color=VIT, loc="left")
-        ax.set_xlabel("Handelsdagar sedan botten", color=DAMPAD, fontsize=9)
-    fig.suptitle("FEM VÅGOR I BULLTRENDERNA – OMXSPI", fontsize=18, color=VIT)
-    rad = " · ".join(f"Våg {k}: {v['forandring']:+.0%} på {v['dagar']:.0f} d" for k, v in snitt.items())
-    fig.text(0.5, 0.925, f"Snitt tidigare trender – {rad}", ha="center", fontsize=11, color=TEXT)
-    fig.text(0.01, 0.005, f"Våg 2 och 4 = de djupaste rekylerna (≥ {REKYL_GRANS:.0%}) där våg 3 inte är kortast (Elliotts regel). Mekanisk "
-             f"vågräkning som kan ändras om en ny, djupare rekyl kommer. · Uppdaterad {uppdaterad}", fontsize=9, color=DAMPAD)
-    fig.tight_layout(rect=[0, 0.02, 1, 0.91])
-    fig.savefig(UT / "vagor.png")
-    plt.close(fig)
-
-
-# --------------------------------------------------------------------------
 # År för år
 # --------------------------------------------------------------------------
 def rita_arsvis(kurser: pd.Series, fran_ar: int, uppdaterad):
@@ -676,11 +583,6 @@ def main():
     vol_nyck["regim"] = nyck["regim"]
     rita_volatilitet(vol_data, namn, vol_nyck, uppdaterad)
 
-    alla_vagor, vag_snitt, vag_nu = vag_statistik(serier, namn)
-    nyck["vagor"] = {"nu": vag_nu, "snitt": vag_snitt,
-                     "trender": {n: [{"vag": w[0], "forandring": w[3], "dagar": w[4]} for w in v]
-                                 for n, v in alla_vagor.items()}}
-    rita_vagor(serier, namn, alla_vagor, vag_snitt, uppdaterad)
     nyck["arsvis"] = {str(k): v for k, v in rita_arsvis(kurser, 1998, uppdaterad).items()}
 
     kurser.rename("close").to_csv(UT / "omxspi.csv", index_label="date")
@@ -691,7 +593,6 @@ def main():
 
 def skriv_html(n):
     a, v, r = n["ar"], n["volatilitet"], n["regim"]
-    w = n["vagor"]["nu"]
     rf = {"gron": GRON, "gul": GUL, "rod": ROD}[r["farg"]]
     flaggor = "".join(f"<li>⚠ {f['sv']}</li>" for f in r["flaggor"]) or "<li class='ok'>Inga varningsflaggor</li>"
     rader = "".join(
@@ -743,18 +644,6 @@ def skriv_html(n):
 <div class="card"><h2>Alla bulltrender sedan 2002</h2>
 <img src="bulltrender.png?v={ver}" alt="Bulltrender 2000-tal OMXSPI">
 <table style="margin-top:14px"><tr><th>Trend</th><th>Handelsdagar</th><th>Uppgång</th><th>Snitt per dag</th></tr>{rader}</table></div>
-
-<div class="card"><h2>Fem vågor</h2><div class="kpis">
- <div class="kpi"><span>Nuvarande våg</span><b>{w['vag']}</b></div>
- <div class="kpi"><span>Dagar i vågen</span><b>{w['dagar']}</b></div>
- <div class="kpi"><span>Vågen hittills</span><b>{w['forandring']:+.0%}</b></div>
- <div class="kpi"><span>Snitt våg {w['vag']} tidigare</span><b>{(w['snitt_forandring'] or 0):+.0%} · {(w['snitt_dagar'] or 0):.0f} d</b></div>
-</div>
-<img src="vagor.png?v={ver}" alt="Fem vågor i bulltrenderna">
-<details><summary>Så räknas vågorna</summary><p>Uppgångar och rekyler hittas mekaniskt: en rekyl är ett fall på minst 10 % från en topp.
-Våg 2 och 4 är de två djupaste rekylerna där våg 3 inte blir den kortaste uppgången (Elliotts grundregel). Våg 1, 3 och 5 är uppgångarna runt dem.
-Räkningen är objektiv och upprepbar, men förenklad – och den kan ändras om en ny rekyl blir djupare än de tidigare.
-Snitten bygger på bara tre avslutade bulltrender.</p></details></div>
 
 <div class="card"><h2>Regeln testad 1999–2026</h2>
 <p>Över MA200 = 100 % aktier · under MA200 = 50 % · under och MA200 faller = 0 %. Beslut på fredagens stängning.</p>
