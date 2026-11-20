@@ -1,7 +1,7 @@
 {
-  "uppdaterad": "2026-11-16",
-  "senaste_kurs_datum": "2026-11-16",
-  "senaste_kurs": 1158.62,
+  "uppdaterad": "2026-11-20",
+  "senaste_kurs_datum": "2026-11-20",
+  "senaste_kurs": 1104.12,
   "trender": {
     "2002–2007": {
       "dagar": 1195,
@@ -19,71 +19,61 @@
       "snitt_per_dag": 0.0005892679775718612
     },
     "2022–": {
-      "dagar": 1040,
-      "uppgang": 0.6789890880635294,
-      "snitt_per_dag": 0.0004983855749625121
+      "dagar": 1044,
+      "uppgang": 0.6000115930267942,
+      "snitt_per_dag": 0.0004503033435394599
     }
   },
   "nuvarande": {
-    "dagar": 1040,
-    "uppgang": 0.6789890880635294,
-    "snitt_per_dag": 0.0004983855749625121
+    "dagar": 1044,
+    "uppgang": 0.6000115930267942,
+    "snitt_per_dag": 0.0004503033435394599
   },
   "snittlangd_tidigare": 1421.0,
-  "avverkat_i_tid": 0.7318789584799437,
+  "avverkat_i_tid": 0.7346938775510204,
   "ar": {
     "ar": 2026,
-    "utfall_hittills": 0.10800627342972957,
-    "monster_samma_dag": 0.013379961439484056,
+    "utfall_hittills": 0.055887078264860834,
+    "monster_samma_dag": 0.0322116427276975,
     "monster_helar": 0.11400251061916067
   },
   "volatilitet": {
-    "vol_20d": 0.11605435844609728,
-    "vol_100d": 0.11850158887848138,
-    "kvot_20_100": 0.9793485432934268,
-    "nedsidesvol_20d": 0.07875494149161248,
-    "nedgang_fran_topp": -0.004972475330854431,
+    "vol_20d": 0.14249793721882467,
+    "vol_100d": 0.12455899713076965,
+    "kvot_20_100": 1.1440196252481194,
+    "nedsidesvol_20d": 0.11147687817248522,
+    "nedgang_fran_topp": -0.05177729493906802,
     "storsta_nedgang_i_trenden": -0.22064733303705653,
-    "vol_60d_nu": 0.12472723203035609,
-    "vol_60d_tidigare_samma_dag": 0.22253462563197215,
+    "vol_60d_nu": 0.13747156148326642,
+    "vol_60d_tidigare_samma_dag": 0.22624812923605228,
     "regim": {
-      "farg": "gron",
+      "farg": "rod",
       "rubrik": {
-        "sv": "Frisk bulltrend",
-        "en": "Healthy bull trend"
+        "sv": "Stress / korrektion",
+        "en": "Stress / correction"
       },
       "text": {
-        "sv": "Kursen stiger och volatiliteten är oförändrad eller sjunker – en lugn trappa uppåt. Det vanligaste läget mitt i en bulltrend.",
-        "en": "Price rising with steady or falling volatility – a calm staircase higher. The most common state in the middle of a bull trend."
+        "sv": "Kursen faller och volatiliteten stiger. Normalt i en bulltrend om det går över inom några veckor – farligt om det består.",
+        "en": "Price falling and volatility rising. Normal in a bull trend if it fades within weeks – dangerous if it persists."
       },
-      "flaggor": [
-        {
-          "sv": "Lugnt nära toppen sent i trenden – toppar bildas ofta i lugn. Varning om volatiliteten börjar stiga utan nya toppar.",
-          "en": "Calm near the high late in the trend – tops often form in calm. Warning if volatility starts rising without new highs."
-        }
-      ],
-      "kurs_20d": 0.02541817859987594,
-      "kvot_20_100": 0.9793485432934268
+      "flaggor": [],
+      "kurs_20d": -0.002186997306920735,
+      "kvot_20_100": 1.1440196252481194
     }
   },
   "regim": {
-    "farg": "gron",
+    "farg": "rod",
     "rubrik": {
-      "sv": "Frisk bulltrend",
-      "en": "Healthy bull trend"
+      "sv": "Stress / korrektion",
+      "en": "Stress / correction"
     },
     "text": {
-      "sv": "Kursen stiger och volatiliteten är oförändrad eller sjunker – en lugn trappa uppåt. Det vanligaste läget mitt i en bulltrend.",
-      "en": "Price rising with steady or falling volatility – a calm staircase higher. The most common state in the middle of a bull trend."
+      "sv": "Kursen faller och volatiliteten stiger. Normalt i en bulltrend om det går över inom några veckor – farligt om det består.",
+      "en": "Price falling and volatility rising. Normal in a bull trend if it fades within weeks – dangerous if it persists."
     },
-    "flaggor": [
-      {
-        "sv": "Lugnt nära toppen sent i trenden – toppar bildas ofta i lugn. Varning om volatiliteten börjar stiga utan nya toppar.",
-        "en": "Calm near the high late in the trend – tops often form in calm. Warning if volatility starts rising without new highs."
-      }
-    ],
-    "kurs_20d": 0.02541817859987594,
-    "kvot_20_100": 0.9793485432934268
+    "flaggor": [],
+    "kurs_20d": -0.002186997306920735,
+    "kvot_20_100": 1.1440196252481194
   },
   "arsvis": {
     "1998": 0.10421473186652408,
@@ -114,6 +104,6 @@
     "2023": 0.1559358452919959,
     "2024": 0.056219433933036855,
     "2025": 0.09542316596654055,
-    "2026": 0.1080062734297298
+    "2026": 0.055887078264861056
   }
 }
